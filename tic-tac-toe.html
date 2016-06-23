@@ -1,26 +1,77 @@
  <html>
   <head>
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-    <script type="text/javascript">
-      google.charts.load('current', {'packages':['corechart']});
-    </script>
-    <script id="vShader" type="x-shader/x-vertex">
+    <script id="vertexShader" type="x-shader/x-vertex">
       attribute vec4  aLoc;
 
       void main() {
-        gl_Position = aLoc
+        gl_Position = aLoc;
+        gl_PointSize = 10.;
       }
-</script>
-<script id="fShader" type="x-shader/x-fragment">
-  precision mediump float;
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
 
-  void main() {
-       gl_FragColor = vec4(1., 0.,0.,1.);
-  }
-</script>
-
+      void main() {
+           gl_FragColor = vec4(1., 0.,0.,1.);
+      }
+    </script>
   </head>
   <body>
-  
+    <canvas id="canvas" width="400" height="400"></canvas>
+    <script type="text/javascript">
+      var glProgram, canvas, c
+
+      //Grab Canvas
+      var canvas = document.getElementById("canvas");
+      
+      // Get WebGl context
+      var ctx = canvas.getContext("webgl");
+      if(!ctx){
+        alert("Your browser does not support WebGl");
+      }
+
+      //Init Vertex Shader
+      var vSrc = document.getElementById("vertexShader").text;
+      var vShader = ctx.createShader(ctx.VERTEX_SHADER);
+      ctx.shaderSource(vShader, vSrc);
+      ctx.compileShader(vShader);
+
+      //Init Fragment Shader
+      var fSrc = document.getElementById("fragmentShader").text;
+      var fShader = ctx.createShader(ctx.FRAGMENT_SHADER);
+      ctx.shaderSource(fShader, fSrc);
+      ctx.compileShader(fShader);
+
+      // link shaders to create our program
+      glProgram = ctx.createProgram();
+      ctx.attachShader(glProgram, vShader);
+      ctx.attachShader(glProgram, fShader);
+      ctx.linkProgram(glProgram);
+      ctx.useProgram(glProgram);
+
+
+      //Set up attribute buffer
+      var glBuffer = ctx.createBuffer();
+      ctx.bindBuffer(ctx.ARRAY_BUFFER, glBuffer);
+
+      //Enable the attribute and define array configuration
+      var attributeLoc = ctx.getAttribLocation(glProgram, 'aLoc');
+      ctx.enableVertexAttribArray(attributeLoc);
+      //Read 4 consecutive elements at a time starting at index 0
+      ctx.vertexAttribPointer(attributeLoc, 4, ctx.FLOAT, false, 0, 0);
+ 
+      //Pass in the javascript array as a buffer.
+      ctx.bufferData(ctx.ARRAY_BUFFER, new Float32Array([0,0,0,1]), ctx.STATIC_DRAW);
+
+      update();
+
+      // Master update function
+      function update(){
+        //Clear the canvas
+        ctx.clear(ctx.COLOR_BUFFER_BIT);
+        //Draw
+        ctx.drawArrays(ctx.POINTS, 0, 1);
+      }
+    </script>
   </body>
 </html>
