@@ -1,76 +1,204 @@
  <html>
   <head>
-    <script id="vertexShader" type="x-shader/x-vertex">
-      attribute vec4  aLoc;
+    <script id="vBoardShader" type="x-shader/x-vertex">
+      attribute vec3   aPosition;
+      //attribute float  aTextureIndex;
+
+      //varying vec2 vTextureCoord;
+
+      //uniform vec2 uTextureCoord[24];
 
       void main() {
-        gl_Position = aLoc;
-        gl_PointSize = 10.;
+        //int textureIndex = int(aTextureIndex);
+        //vTextureCoord = uTextureCoord[textureIndex];
+
+        gl_Position = vec4(aPosition, 1.);
       }
     </script>
-    <script id="fragmentShader" type="x-shader/x-fragment">
+    <script id="fBoardShader" type="x-shader/x-fragment">
       precision mediump float;
 
+      //varying vec2 vTextureCoord;
+
+      //uniform sampler2D uImage;
+
       void main() {
-           gl_FragColor = vec4(1., 0.,0.,1.);
+           //gl_FragColor = texture2D(uImage, vTextureCoord);
+           gl_FragColor = vec4(1., 0., 0., 1.);
       }
     </script>
   </head>
   <body>
     <canvas id="canvas" width="400" height="400"></canvas>
     <script type="text/javascript">
-      var glProgram, canvas, c
+    "use strict";
+
+      var glContext, glCanvas, glProgram;
+
+      var glGameGrid = [
+      /* GRID */
+      // Horizontal Bottom Line
+           -1, -0.40, 0,
+            1, -0.40, 0,
+           -1, -0.30, 0,
+            1, -0.30, 0,
+      // Horizontal Top Line
+           -1,  0.40, 0,
+            1,  0.40, 0,
+           -1,  0.30, 0,
+            1,  0.30, 0,
+      // Vertical Left Line
+        -0.40,   -1, 0,
+        -0.40,    1, 0,
+        -0.30,   -1, 0,
+        -0.30,    1, 0,
+      // Vertical Right Line
+         0.40,   -1, 0,
+         0.40,    1, 0,
+         0.30,   -1, 0,
+         0.30,    1, 0,
+
+      /* Panels */
+      // Bottom Left
+           -1,    -1, 0,
+           -1, -0.40, 0,
+         -0.4,    -1, 0,
+         -0.4, -0.40, 0,
+
+      // Middle Left
+           -1,  -0.30, 0,
+           -1,   0.30, 0,
+         -0.4,  -0.30, 0,
+         -0.4,   0.30, 0,
+
+      // Top Left
+           -1,   0.40, 0,
+           -1,      1, 0,
+         -0.4,   0.40, 0,
+         -0.4,      1, 0,
+
+      // Bottom Middle
+         -0.3,    -1, 0,
+         -0.3, -0.40, 0,
+          0.3,    -1, 0,
+          0.3, -0.40, 0,
+
+      // Middle Middle
+         -0.3,  -0.30, 0,
+         -0.3,   0.30, 0,
+          0.3,  -0.30, 0,
+          0.3,   0.30, 0,
+
+        // Top Middle
+         -0.3,   0.40, 0,
+         -0.3,      1, 0,
+          0.3,   0.40, 0,
+          0.3,      1, 0,
+
+        // Bottom Right
+          0.4,    -1, 0,
+          0.4, -0.40, 0,
+            1,    -1, 0,
+            1, -0.40, 0,
+
+        // Middle Right
+          0.4,  -0.30, 0,
+          0.4,   0.30, 0,
+            1,  -0.30, 0,
+            1,   0.30, 0,
+
+        // Top Right
+          0.4,   0.40, 0,
+          0.4,      1, 0,
+            1,   0.40, 0,
+            1,      1, 0
+      ];
+
+
+
+
 
       //Grab Canvas
-      var canvas = document.getElementById("canvas");
-      
+      glCanvas = document.getElementById("canvas");
+
       // Get WebGl context
-      var ctx = canvas.getContext("webgl");
-      if(!ctx){
+      glContext = canvas.getContext("webgl");
+      if(!glContext){
         alert("Your browser does not support WebGl");
       }
 
       //Init Vertex Shader
-      var vSrc = document.getElementById("vertexShader").text;
-      var vShader = ctx.createShader(ctx.VERTEX_SHADER);
-      ctx.shaderSource(vShader, vSrc);
-      ctx.compileShader(vShader);
+      var vSrc = document.getElementById("vBoardShader").text;
+      var vShader = glContext.createShader(glContext.VERTEX_SHADER);
+      glContext.shaderSource(vShader, vSrc);
+      glContext.compileShader(vShader);
 
       //Init Fragment Shader
-      var fSrc = document.getElementById("fragmentShader").text;
-      var fShader = ctx.createShader(ctx.FRAGMENT_SHADER);
-      ctx.shaderSource(fShader, fSrc);
-      ctx.compileShader(fShader);
+      var fSrc = document.getElementById("fBoardShader").text;
+      var fShader = glContext.createShader(glContext.FRAGMENT_SHADER);
+      glContext.shaderSource(fShader, fSrc);
+      glContext.compileShader(fShader);
 
       // link shaders to create our program
-      glProgram = ctx.createProgram();
-      ctx.attachShader(glProgram, vShader);
-      ctx.attachShader(glProgram, fShader);
-      ctx.linkProgram(glProgram);
-      ctx.useProgram(glProgram);
+      glProgram = glContext.createProgram();
+      glContext.attachShader(glProgram, vShader);
+      glContext.attachShader(glProgram, fShader);
+      glContext.linkProgram(glProgram);
+      glContext.useProgram(glProgram);
 
 
-      //Set up attribute buffer
-      var glBuffer = ctx.createBuffer();
-      ctx.bindBuffer(ctx.ARRAY_BUFFER, glBuffer);
+      // Enable the attribute array used to draw vertices
+      var glPositionArrLocation = glContext.getAttribLocation(glProgram, "aPosition");
+      glContext.enableVertexAttribArray(glPositionArrLocation);
 
-      //Enable the attribute and define array configuration
-      var attributeLoc = ctx.getAttribLocation(glProgram, 'aLoc');
-      ctx.enableVertexAttribArray(attributeLoc);
-      //Read 4 consecutive elements at a time starting at index 0
-      ctx.vertexAttribPointer(attributeLoc, 4, ctx.FLOAT, false, 0, 0);
- 
+      //Vertex Buffer
+      var vertexBuffer = glContext.createBuffer();
+      glContext.bindBuffer(glContext.ARRAY_BUFFER, vertexBuffer);
+
       //Pass in the javascript array as a buffer.
-      ctx.bufferData(ctx.ARRAY_BUFFER, new Float32Array([0,0,0,1]), ctx.STATIC_DRAW);
+      glContext.bufferData(glContext.ARRAY_BUFFER, new Float32Array(glGameGrid), glContext.STATIC_DRAW);
+
+
+      var vertexIndexBuffer = glContext.createBuffer();
+      glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
+
+      var indexArray = [];
+      for(var i = 0; i < glGameGrid.length/2; i += 4){
+        // Triangle 1
+        indexArray.push(i);
+        indexArray.push(i+1);
+        indexArray.push(i+2);
+
+        // Triangle 2
+        indexArray.push(i+1);
+        indexArray.push(i+2);
+        indexArray.push(i+3);
+
+      }
+
+      glContext.bufferData(glContext.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexArray), glContext.STATIC_DRAW);
+//      glContext.bufferData(glContext.ELEMENT_ARRAY_BUFFER, new Uint16Array(gridIndecies), glContext.STATIC_DRAW);
+
+//      //Enable the attribute and define array configuration
+//      var attributeLoc = glContext.getAttribLocation(glProgram, 'aLoc');
+//      glContext.enableVertexAttribArray(attributeLoc);
+//      //Read 4 consecutive elements at a time starting at index 0
+//      glContext.vertexAttribPointer(attributeLoc, 3, glContext.FLOAT, false, 0, 0);
 
       update();
 
       // Master update function
       function update(){
         //Clear the canvas
-        ctx.clear(ctx.COLOR_BUFFER_BIT);
-        //Draw
-        ctx.drawArrays(ctx.POINTS, 0, 1);
+        glContext.clear(glContext.COLOR_BUFFER_BIT);
+
+        glContext.bindBuffer(glContext.ARRAY_BUFFER, vertexBuffer);
+        glContext.vertexAttribPointer(glPositionArrLocation, 3, glContext.FLOAT, false, 0, 0);
+
+        glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
+        glContext.drawElements(glContext.TRIANGLES, glGameGrid.length/2, glContext.UNSIGNED_SHORT, 0);
+
+
       }
     </script>
   </body>
