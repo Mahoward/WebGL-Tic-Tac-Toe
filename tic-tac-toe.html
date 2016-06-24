@@ -41,6 +41,9 @@
             <input id="PvE" type="radio" name="gameType" value="PvE"><label for="PvE">Player vs Computer</label><br>
             <input id="EvE" type="radio" name="gameType" value="EvE"><label for="EvE">Computer vs Computer</label><br>
         </form>
+
+        <button id="start">Start</button>
+        <button id="reset">Reset</button>
     </div>
     <script type="text/javascript">
     "use strict";
@@ -63,6 +66,8 @@
     var kPOSITION_X_MID   = 28;
     var kPOSITION_X_RIGHT = 40;
 
+    var kPOISTION_INVALID = -999;
+
     var kSYMBOL_X = 36;
     var kSYMBOL_O = 0;
 
@@ -76,72 +81,74 @@
     var glGameVertexCoords = [];
     var glTextureCoords = [];
 
-    function generateGrid(){
+    /* Dynamically generates the cross-stitch grid for the game */
+    function generateGrid() {
         var height = 1;
         var width = .4;
         var z = 0;
         var texture = kTEXTURE_BLACK;
 
-        for(var i = 0; i < 16; i++){
+        for (var i = 0; i < 16; i++) {
             height *= -1;
-            if(i % 2 == 0) {
-                if(i != 0){
-                    if(Math.abs(width) == .4)
-                            width = .3;
+            if (i % 2 === 0) {
+                if (i != 0) {
+                    if (Math.abs(width) === .4)
+                        width = .3;
                     else
-                            width = .4;
+                        width = .4;
                 }
             }
-            if(width > 0 && (i < 4 || (i >= 8 && i < 12))){
+            if (width > 0 && (i < 4 || (i >= 8 && i < 12))) {
                 width *= -1;
             }
 
-            if(i >= 8){
+            if (i >= 8) {
                 glGameVertexCoords.push(width);
                 glGameVertexCoords.push(height);
-            }else{
+            } else {
                 glGameVertexCoords.push(height);
                 glGameVertexCoords.push(width);
             }
             glGameVertexCoords.push(0);
-            glGameVertexCoords.push(texture+(i%4));
+            glGameVertexCoords.push(texture + (i % 4));
         }
     }
 
-    function generatePanels(texture){
+    /* Dynamically generates the panels for X and O */
+    function generatePanels(texture) {
         var size = .6;
         var baseXOffset = 0;
         var baseYOffset = 0;
         var xOffset = 0;
         var yOffset = 0;
 
-        for(var i = 0; i < 36; i++){
-            if(i % 4 == 0 && i != 0){
+        for (var i = 0; i < 36; i++) {
+            if (i % 4 === 0 && i != 0) {
                 baseYOffset += .7;
             }
-            if(i % 12 == 0 && i != 0){
+            if (i % 12 === 0 && i != 0) {
                 baseXOffset += .7;
                 baseYOffset = 0;
             }
             yOffset = baseYOffset;
             xOffset = baseXOffset;
 
-            if(i % 4 == 1){
+            if (i % 4 === 1) {
                 yOffset += size;
             }
-            if(i % 4 == 2){
+            if (i % 4 === 2) {
                 xOffset += size;
 
             }
-            if(i % 4 == 3){
+            if (i % 4 === 3) {
                 yOffset += size;
                 xOffset += size;
             }
 
-            glGameVertexCoords.push((-1+ xOffset).toFixed(2));
-            glGameVertexCoords.push((-1+ yOffset).toFixed(2));
+            glGameVertexCoords.push((-1 + xOffset).toFixed(2));
+            glGameVertexCoords.push((-1 + yOffset).toFixed(2));
             glGameVertexCoords.push(0);
-            glGameVertexCoords.push(texture + (i%4));
+            glGameVertexCoords.push(texture + (i % 4));
         }
     }
 
@@ -171,12 +178,13 @@
             1.00, 0.00
     ];
 
+    /* Initalize the webgl program by compiling the shaders */
     function initWebGL() {
         glCanvas = document.getElementById("canvas");
 
         // Get WebGl context
         glContext = canvas.getContext("webgl");
-        if(!glContext){
+        if (!glContext) {
             alert("Your browser does not support WebGl");
         }
 
@@ -200,7 +208,9 @@
         glContext.useProgram(glProgram);
     }
 
-    function initTexture(){
+    /* The texture needs to be loaded into the WebGL layer AFTER the image is
+     * "loaded" from the "server" */
+    function initTexture() {
         glTexture = glContext.createTexture();
         glTexture.image = new Image();
         glTexture.image.onload = function () {
@@ -217,22 +227,16 @@
         glTexture.image.src = "resources/ticTacToeMap.png";
     }
 
-    function initArrays(){
+    /* The first initalization of the arrays used by WebGL. The vertices and
+     * texture coordinate are loaded in here as well as the initial index
+     * array that draws the gird. */
+    function initArrays() {
         generateGrid();
         generatePanels(kTEXTURE_O);
         generatePanels(kTEXTURE_X);
 
         glIndexArray = [];
-        for(var i = 0; i <= 12; i += 4){
-            // Triangle 1
-            glIndexArray.push(i);
-            glIndexArray.push(i+1);
-            glIndexArray.push(i+2);
-            // Triangle 2
-            glIndexArray.push(i+1);
-            glIndexArray.push(i+2);
-            glIndexArray.push(i+3);
-        }
+        glDrawGrid();
 
         // Enable the attribute array used to draw vertices
         glValueArrLocation = glContext.getAttribLocation(glProgram, "aValues");
@@ -253,22 +257,35 @@
         glContext.uniform2fv(uniformLoc, new Float32Array(glTextureCoords));
     }
 
+
+    /* The initalizations functions need to fire in a specific order. The
+     * WebGL layer might be delayed by the texture coming from the server. */
     initWebGL();
     initTexture();
     var textureCheck = setTimeout(isTextureReady, 50);
-    function isTextureReady(){
-        if(bTextureReady) {
+    function isTextureReady() {
+        if (bTextureReady) {
             initArrays();
             //Draw Grid
             glUpdate();
-            main();
             window.clearInterval(textureCheck);
         }
     }
 
-
-    // Master update function
-    function glUpdate(){
+    function glDrawGrid(){
+        for (var i = 0; i <= 12; i += 4) {
+            // Triangle 1
+            glIndexArray.push(i);
+            glIndexArray.push(i + 1);
+            glIndexArray.push(i + 2);
+            // Triangle 2
+            glIndexArray.push(i + 1);
+            glIndexArray.push(i + 2);
+            glIndexArray.push(i + 3);
+        }
+    }
+    // Master update function used to draw elements to the canvas
+    function glUpdate() {
         //Clear the canvas
         glContext.clear(glContext.COLOR_BUFFER_BIT);
 
@@ -276,47 +293,49 @@
         glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, glIndexBuffer);
         glContext.bufferData(glContext.ELEMENT_ARRAY_BUFFER, new Uint16Array(glIndexArray), glContext.STATIC_DRAW);
 
+        // Draw
         glContext.drawElements(glContext.TRIANGLES, glIndexArray.length, glContext.UNSIGNED_SHORT, 0);
-
-
     }
 
-
+    // The WebGL function used to add an X or an O to the grid
     function draw(symbol, x, y) {
-            var startVertex = x + y + symbol;
-            // Triangle 1
-            glIndexArray.push(startVertex);
-            glIndexArray.push(startVertex+1);
-            glIndexArray.push(startVertex+2);
-            // Triangle 2
-            glIndexArray.push(startVertex+1);
-            glIndexArray.push(startVertex+2);
-            glIndexArray.push(startVertex+3);
-            glUpdate();
+        var startVertex = x + y + symbol;
+        // Triangle 1
+        glIndexArray.push(startVertex);
+        glIndexArray.push(startVertex + 1);
+        glIndexArray.push(startVertex + 2);
+        // Triangle 2
+        glIndexArray.push(startVertex + 1);
+        glIndexArray.push(startVertex + 2);
+        glIndexArray.push(startVertex + 3);
+        glUpdate();
     }
 
-    function main(){
-        draw(kSYMBOL_X,  kPOSITION_X_MID, kPOSITION_Y_TOP);
-        draw(kSYMBOL_X,  kPOSITION_X_MID, kPOSITION_Y_MID);
-        draw(kSYMBOL_X,  kPOSITION_X_MID, kPOSITION_Y_BOT);
-
-        draw(kSYMBOL_X,  kPOSITION_X_LEFT, kPOSITION_Y_TOP);
-        draw(kSYMBOL_X,  kPOSITION_X_LEFT, kPOSITION_Y_MID);
-        draw(kSYMBOL_X,  kPOSITION_X_LEFT, kPOSITION_Y_BOT);
-
-        draw(kSYMBOL_O,  kPOSITION_X_RIGHT, kPOSITION_Y_TOP);
-        draw(kSYMBOL_O,  kPOSITION_X_RIGHT, kPOSITION_Y_MID);
-        draw(kSYMBOL_O,  kPOSITION_X_RIGHT, kPOSITION_Y_BOT);
-
+    function clear(){
+        glIndexArray = [];
+        glDrawGrid();
+        glUpdate();
     }
 
+
+/*============================================================================*/
 
     /* UI Management */
-//  This logic was based on:
-//  http://jsfiddle.net/codingsolver/MsYqx/
-    $('#gameType').find('input').on('change', function () {
-        console.log($('input[name="gameType"]:checked', '#gameType').val())
+    $('#start').click(function (e) {
+        if($('input[name="gameType"]:checked').length <= 0) {
+            alert("Please select a game type!");
+            return;
+        }
+        //  This logic was based on:
+        //  http://jsfiddle.net/codingsolver/MsYqx/
+        var gameType = $('input[name="gameType"]:checked', '#gameType').val();
+        startGame(gameType);
+
     });
+
+    //Reset the game on reset click
+    $('#reset').click(reset);
+
 
 //  This logic was based on:
 //  http://stackoverflow.com/questions/3234977/using-jquery-how-to-get-click-coordinates-on-the-target-element
@@ -324,24 +343,221 @@
         var posX = e.pageX - $(this).offset().left;
         var posY = e.pageY - $(this).offset().top;
 
+        var x;
+        var y;
+
         if(posY < 116)
-            console.log('Top');
+            y = kPOSITION_Y_TOP;
         else if(posY > 141 && posY < 257)
-            console.log('Mid');
+            y = kPOSITION_Y_MID;
         else if(posY > 282)
-            console.log('Bot');
+            y = kPOSITION_Y_BOT;
         else
-            console.log('Line');
+            y = kPOSITION_INVALID;
+
 
         if(posX < 116)
-            console.log('Left');
+            x = kPOSITION_X_LEFT;
         else if(posX > 141 && posX < 257)
-            console.log('Mid');
+            x = kPOSITION_X_MID;
         else if(posX > 282)
-            console.log('Right');
+            x = kPOSITION_X_RIGHT;
         else
-            console.log('Line');
+            x = kPOISTION_INVALID;
+
+        if(bUserTurn){
+            move(x, y);
+
+
+        }
     });
+
+
+/*============================================================================*/
+    /* Game Logic */
+
+    /* Constants */
+    var kGAME_TYPE_PVP = 0;
+    var kGAME_TYPE_PVE = 1;
+    var kGAME_TYPE_EVE = 2;
+
+    var gameType;
+
+    var bUserTurn = false;
+    var bCompTurn = false;
+    var bGameRunning = false;
+
+    var gameMode;
+    var turnSymbol;
+
+    var board = [['','',''],
+                 ['','',''],
+                 ['','','']];
+
+    function startGame(mode){
+        turnSymbol = kSYMBOL_X;
+        bGameRunning = true;
+
+        gameMode = mode;
+        if(gameMode === 'PvP' || gameMode === 'PvE'){
+            bUserTurn = true;
+        }else{
+            bCompTurn = true;
+            computerMove();
+        }
+
+    }
+
+    function computerMove(){
+        setTimeout(function () {
+            var randX = Math.floor(Math.random() *3);
+            var randY = Math.floor(Math.random() *3);
+            while(board[randX][randY] !== ''){
+                randX = Math.floor(Math.random() *3);
+                randY = Math.floor(Math.random() *3);
+            }
+            var xConsts = [kPOSITION_X_LEFT, kPOSITION_X_MID, kPOSITION_X_RIGHT];
+            var yConsts = [kPOSITION_Y_TOP, kPOSITION_Y_MID, kPOSITION_Y_BOT];
+            move(xConsts[randX], yConsts[randY]);
+        }, 1000);
+    }
+
+    function move(x,y){
+        if(bGameRunning) {
+            if(x === kPOISTION_INVALID || y === kPOISTION_INVALID) {
+                alert("Invalid Selection! Please try again");
+                return;
+            }
+
+            var boardX;
+            switch (x){
+                case kPOSITION_X_LEFT:
+                    boardX = 0;
+                    break;
+                case kPOSITION_X_MID:
+                    boardX = 1;
+                    break;
+                case kPOSITION_X_RIGHT:
+                    boardX = 2;
+                    break;
+            }
+
+            var boardY;
+            switch (y){
+                case kPOSITION_Y_TOP:
+                    boardY = 0;
+                    break;
+                case kPOSITION_Y_MID:
+                    boardY = 1;
+                    break;
+                case kPOSITION_Y_BOT:
+                    boardY = 2;
+                    break;
+            }
+
+            if(board[boardX][boardY] === '') {
+                board[boardX][boardY] = turnSymbol;
+                draw(turnSymbol, x, y);
+            }else {
+                alert("Selection Already Taken. Please try again.");
+                return;
+            }
+            if(!evaluateGame()) {
+                swapSymbol();
+                if(gameMode === 'PvE'){
+                    bCompTurn = bUserTurn;
+                    bUserTurn = !bUserTurn;
+                }
+                if(bCompTurn) {
+                    computerMove();
+                }
+            }
+        }
+    }
+
+    function reset(){
+        bGameRunning = false;
+        board = [['','',''],
+                 ['','',''],
+                 ['','','']];
+        clear();
+
+    }
+
+
+    function swapSymbol(){
+        if(turnSymbol === kSYMBOL_O){
+            turnSymbol = kSYMBOL_X;
+        }else
+            turnSymbol = kSYMBOL_O;
+    }
+
+
+    // I'm aware of the nested for loop in this function but this grid is 3x3
+    // so I didn't feel the need to optimize. Just like if the grid isn't full
+    // enough for a win this check will still occur. TODO:Optimize this check and when it occurs
+    function evaluateGame() {
+        //Diagonal Check 1
+        if (board[0][0] !== '' && board[1][1] !== '' && board[2][2] !== '' &&
+            board[0][0] === board[1][1] && board[1][1] === board[2][2]) {
+            console.log('Diagonal :'+0+''+0+' Wins!');
+            win(board[0][0]);
+            return true;
+        }
+
+        //Diagonal Check 2
+        if (board[0][2] !== '' && board[1][1] !== '' && board[2][0] !== '' &&
+            board[0][2] === board[1][1] && board[1][1] === board[2][0]) {
+            console.log('Diagonal :'+0+''+2+' Wins!');
+            win(board[0][2]);
+            return true;
+        }
+
+        for (var i = 0; i < board.length; i++) {
+            //Column Check
+            if (board[i][0] != '' && board[i][0] === board[i][1] &&
+                    board[i][1] === board[i][2]) {
+                console.log('Column :' + i + ' Wins!');
+                win(board[i][0]);
+                return true;
+            }
+            //Row
+            if (board[0][i] != '' && board[0][i] === board[1][i] &&
+                    board[1][i] === board[2][i]) {
+                console.log('Row :' + i + ' Wins!');
+                win(board[0][i]);
+                return true;
+            }
+        }
+
+        for(var i = 0; i < board.length; i++){
+            //Check for empty slots
+            for (var j = 0; j < board[i].length; j++) {
+                if (board[i][j] === '')return false;
+            }
+        }
+            stalemate();
+            return true;
+    }
+
+    function win(symbol){
+        console.log(symbol);
+        if(kSYMBOL_O === symbol){
+            alert('O wins!');
+        }else if(kSYMBOL_X === symbol){
+            alert('X wins!');
+        }else
+            alert('Oops! This shouldn\'t happen! Symbol: '+symbol);
+
+        bGameRunning = false;
+        bUserTurn = false;
+    }
+
+    function stalemate(){
+        alert('Stalemate!');
+    }
+
+
     </script>
   </body>
 </html>
