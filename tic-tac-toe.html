@@ -26,32 +26,50 @@
            //gl_FragColor = vec4(1., 0., 0., 1.);
       }
     </script>
+    <link type="text/css" rel="stylesheet" href="resources/ticTacToe.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+
   </head>
   <body>
-    <canvas id="canvas" width="400" height="400"></canvas>
+    <canvas id="canvas" class="canvas" width="400" height="400"></canvas>
+    <div id="controls" class="control-panel">
+        <h1>Tic Tac Toe</h1>
+
+        <label>Choose a Setting:</label>
+        <form id="gameType">
+            <input id="PvP" type="radio" name="gameType" value="PvP"><label for="PvP">Player vs Player</label><br>
+            <input id="PvE" type="radio" name="gameType" value="PvE"><label for="PvE">Player vs Computer</label><br>
+            <input id="EvE" type="radio" name="gameType" value="EvE"><label for="EvE">Computer vs Computer</label><br>
+        </form>
+    </div>
     <script type="text/javascript">
     "use strict";
 
-/* CONSTANTS */
+    /* CONSTANTS */
+    // Web GL Only
     var kTEXTURE_O     = 0;
     var kTEXTURE_X     = 4;
     var kTEXTURE_WHITE = 8;
     var kTEXTURE_BLACK = 12;
 
-    var kPOSITION_Y_TOP = 1;
-    var kPOSITION_Y_MID = 0;
-    var kPOSITION_Y_BOT = -1;
 
-    var kPOSITION_X_LEFT  = 1;
-    var kPOSITION_X_MID   = 0;
-    var kPOSITION_X_RIGHT = -1;
+
+    // Constants for the Game
+    var kPOSITION_Y_TOP = 8;
+    var kPOSITION_Y_MID = 4;
+    var kPOSITION_Y_BOT = 0;
+
+    var kPOSITION_X_LEFT  = 16;
+    var kPOSITION_X_MID   = 28;
+    var kPOSITION_X_RIGHT = 40;
+
+    var kSYMBOL_X = 36;
+    var kSYMBOL_O = 0;
 
 
 
     var glContext, glCanvas, glProgram, glVertexBuffer, glIndexArray,
         glIndexBuffer, glTexture, glValueArrLocation;
-
-    var gridOffest;
 
     var bTextureReady = false;
 
@@ -90,15 +108,14 @@
         }
     }
 
-    function generatePanels(){
+    function generatePanels(texture){
         var size = .6;
         var baseXOffset = 0;
         var baseYOffset = 0;
         var xOffset = 0;
         var yOffset = 0;
-        var texture = kTEXTURE_O;
 
-        for(var i = 0; i < 72; i++){
+        for(var i = 0; i < 36; i++){
             if(i % 4 == 0 && i != 0){
                 baseYOffset += .7;
             }
@@ -120,14 +137,11 @@
                 yOffset += size;
                 xOffset += size;
             }
+
             glGameVertexCoords.push((-1+ xOffset).toFixed(2));
             glGameVertexCoords.push((-1+ yOffset).toFixed(2));
             glGameVertexCoords.push(0);
             glGameVertexCoords.push(texture + (i%4));
-
-            if(i % 36 == 0 && i != 0){
-                texture = kTEXTURE_X;
-            }
         }
     }
 
@@ -205,7 +219,8 @@
 
     function initArrays(){
         generateGrid();
-        generatePanels();
+        generatePanels(kTEXTURE_O);
+        generatePanels(kTEXTURE_X);
 
         glIndexArray = [];
         for(var i = 0; i <= 12; i += 4){
@@ -237,7 +252,7 @@
         // tell webgl how buffer is laid out (pairs of x,y coords)
         glContext.uniform2fv(uniformLoc, new Float32Array(glTextureCoords));
     }
-    
+
     initWebGL();
     initTexture();
     var textureCheck = setTimeout(isTextureReady, 50);
@@ -245,8 +260,7 @@
         if(bTextureReady) {
             initArrays();
             //Draw Grid
-            glUpdate(glIndexArray.length);
-            gridOffest = glIndexArray.length;
+            glUpdate();
             main();
             window.clearInterval(textureCheck);
         }
@@ -254,27 +268,80 @@
 
 
     // Master update function
-    function glUpdate(numOfVertices){
+    function glUpdate(){
         //Clear the canvas
         glContext.clear(glContext.COLOR_BUFFER_BIT);
 
-        glContext.drawElements(glContext.TRIANGLES, numOfVertices, glContext.UNSIGNED_SHORT, 0);
+        //Update Index Buffer
+        glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, glIndexBuffer);
+        glContext.bufferData(glContext.ELEMENT_ARRAY_BUFFER, new Uint16Array(glIndexArray), glContext.STATIC_DRAW);
+
+        glContext.drawElements(glContext.TRIANGLES, glIndexArray.length, glContext.UNSIGNED_SHORT, 0);
 
 
     }
 
 
-    function drawX(x, y) {
-
-    }
-    function drawO(x, y) {
-
+    function draw(symbol, x, y) {
+            var startVertex = x + y + symbol;
+            // Triangle 1
+            glIndexArray.push(startVertex);
+            glIndexArray.push(startVertex+1);
+            glIndexArray.push(startVertex+2);
+            // Triangle 2
+            glIndexArray.push(startVertex+1);
+            glIndexArray.push(startVertex+2);
+            glIndexArray.push(startVertex+3);
+            glUpdate();
     }
 
     function main(){
-        drawX(kPOSITION_X_LEFT, kPOSITION_Y_BOT);
-        drawO(kPOSITION_X_LEFT, kPOSITION_Y_TOP);
+        draw(kSYMBOL_X,  kPOSITION_X_MID, kPOSITION_Y_TOP);
+        draw(kSYMBOL_X,  kPOSITION_X_MID, kPOSITION_Y_MID);
+        draw(kSYMBOL_X,  kPOSITION_X_MID, kPOSITION_Y_BOT);
+
+        draw(kSYMBOL_X,  kPOSITION_X_LEFT, kPOSITION_Y_TOP);
+        draw(kSYMBOL_X,  kPOSITION_X_LEFT, kPOSITION_Y_MID);
+        draw(kSYMBOL_X,  kPOSITION_X_LEFT, kPOSITION_Y_BOT);
+
+        draw(kSYMBOL_O,  kPOSITION_X_RIGHT, kPOSITION_Y_TOP);
+        draw(kSYMBOL_O,  kPOSITION_X_RIGHT, kPOSITION_Y_MID);
+        draw(kSYMBOL_O,  kPOSITION_X_RIGHT, kPOSITION_Y_BOT);
+
     }
+
+
+    /* UI Management */
+//  This logic was based on:
+//  http://jsfiddle.net/codingsolver/MsYqx/
+    $('#gameType').find('input').on('change', function () {
+        console.log($('input[name="gameType"]:checked', '#gameType').val())
+    });
+
+//  This logic was based on:
+//  http://stackoverflow.com/questions/3234977/using-jquery-how-to-get-click-coordinates-on-the-target-element
+    $('#canvas').click(function (e) { //Offset mouse Position
+        var posX = e.pageX - $(this).offset().left;
+        var posY = e.pageY - $(this).offset().top;
+
+        if(posY < 116)
+            console.log('Top');
+        else if(posY > 141 && posY < 257)
+            console.log('Mid');
+        else if(posY > 282)
+            console.log('Bot');
+        else
+            console.log('Line');
+
+        if(posX < 116)
+            console.log('Left');
+        else if(posX > 141 && posX < 257)
+            console.log('Mid');
+        else if(posX > 282)
+            console.log('Right');
+        else
+            console.log('Line');
+    });
     </script>
   </body>
 </html>

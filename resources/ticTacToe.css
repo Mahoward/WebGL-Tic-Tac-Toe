@@ -1,0 +1,9 @@
+.canvas{
+    float: left;
+}
+.control-panel{
+    display: inline-block;
+    height: 100%;
+    width: 50%;
+
+}
