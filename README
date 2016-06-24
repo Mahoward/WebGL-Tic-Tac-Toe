@@ -1,0 +1,14 @@
+WebGL based Tic Tac Toe Game
+
+This project allows the user to play Tic-Tac-Toe with another player or a Computer.
+The game can also be run as computer vs computer.
+
+Due to CORS policy in chrome, this project must be hosted on a server in order
+for the texture to load.
+
+The easiest method of hosting this project is the python simple server:
+
+Access the project directory in a terminal window and run:
+python -m SimpleHTTPServer
+
+Unless another port is specified, the url is: http://localhost:8000/tic-tac-toe.html

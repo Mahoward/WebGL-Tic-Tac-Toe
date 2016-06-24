@@ -394,27 +394,27 @@
                  ['','',''],
                  ['','','']];
 
-    function startGame(mode){
+    function startGame(mode) {
         turnSymbol = kSYMBOL_X;
         bGameRunning = true;
 
         gameMode = mode;
-        if(gameMode === 'PvP' || gameMode === 'PvE'){
+        if (gameMode === 'PvP' || gameMode === 'PvE') {
             bUserTurn = true;
-        }else{
+        } else {
             bCompTurn = true;
             computerMove();
         }
 
     }
 
-    function computerMove(){
+    function computerMove() {
         setTimeout(function () {
-            var randX = Math.floor(Math.random() *3);
-            var randY = Math.floor(Math.random() *3);
-            while(board[randX][randY] !== ''){
-                randX = Math.floor(Math.random() *3);
-                randY = Math.floor(Math.random() *3);
+            var randX = Math.floor(Math.random() * 3);
+            var randY = Math.floor(Math.random() * 3);
+            while (board[randX][randY] !== '') {
+                randX = Math.floor(Math.random() * 3);
+                randY = Math.floor(Math.random() * 3);
             }
             var xConsts = [kPOSITION_X_LEFT, kPOSITION_X_MID, kPOSITION_X_RIGHT];
             var yConsts = [kPOSITION_Y_TOP, kPOSITION_Y_MID, kPOSITION_Y_BOT];
@@ -422,15 +422,15 @@
         }, 1000);
     }
 
-    function move(x,y){
-        if(bGameRunning) {
-            if(x === kPOISTION_INVALID || y === kPOISTION_INVALID) {
+    function move(x,y) {
+        if (bGameRunning) {
+            if (x === kPOISTION_INVALID || y === kPOISTION_INVALID) {
                 alert("Invalid Selection! Please try again");
                 return;
             }
 
             var boardX;
-            switch (x){
+            switch (x) {
                 case kPOSITION_X_LEFT:
                     boardX = 0;
                     break;
@@ -443,7 +443,7 @@
             }
 
             var boardY;
-            switch (y){
+            switch (y) {
                 case kPOSITION_Y_TOP:
                     boardY = 0;
                     break;
@@ -455,40 +455,39 @@
                     break;
             }
 
-            if(board[boardX][boardY] === '') {
+            if (board[boardX][boardY] === '') {
                 board[boardX][boardY] = turnSymbol;
                 draw(turnSymbol, x, y);
-            }else {
+            } else {
                 alert("Selection Already Taken. Please try again.");
                 return;
             }
-            if(!evaluateGame()) {
+            if (!evaluateGame()) {
                 swapSymbol();
-                if(gameMode === 'PvE'){
+                if (gameMode === 'PvE') {
                     bCompTurn = bUserTurn;
                     bUserTurn = !bUserTurn;
                 }
-                if(bCompTurn) {
+                if (bCompTurn) {
                     computerMove();
                 }
             }
         }
     }
 
-    function reset(){
+    function reset() {
         bGameRunning = false;
-        board = [['','',''],
-                 ['','',''],
-                 ['','','']];
+        board = [['', '', ''],
+            ['', '', ''],
+            ['', '', '']];
         clear();
-
     }
 
 
-    function swapSymbol(){
-        if(turnSymbol === kSYMBOL_O){
+    function swapSymbol() {
+        if (turnSymbol === kSYMBOL_O) {
             turnSymbol = kSYMBOL_X;
-        }else
+        } else
             turnSymbol = kSYMBOL_O;
     }
 
@@ -499,16 +498,16 @@
     function evaluateGame() {
         //Diagonal Check 1
         if (board[0][0] !== '' && board[1][1] !== '' && board[2][2] !== '' &&
-            board[0][0] === board[1][1] && board[1][1] === board[2][2]) {
-            console.log('Diagonal :'+0+''+0+' Wins!');
+                board[0][0] === board[1][1] && board[1][1] === board[2][2]) {
+            console.log('Diagonal :' + 0 + '' + 0 + ' Wins!');
             win(board[0][0]);
             return true;
         }
 
         //Diagonal Check 2
         if (board[0][2] !== '' && board[1][1] !== '' && board[2][0] !== '' &&
-            board[0][2] === board[1][1] && board[1][1] === board[2][0]) {
-            console.log('Diagonal :'+0+''+2+' Wins!');
+                board[0][2] === board[1][1] && board[1][1] === board[2][0]) {
+            console.log('Diagonal :' + 0 + '' + 2 + ' Wins!');
             win(board[0][2]);
             return true;
         }
@@ -530,30 +529,30 @@
             }
         }
 
-        for(var i = 0; i < board.length; i++){
+        for (var i = 0; i < board.length; i++) {
             //Check for empty slots
             for (var j = 0; j < board[i].length; j++) {
                 if (board[i][j] === '')return false;
             }
         }
-            stalemate();
-            return true;
+        stalemate();
+        return true;
     }
 
-    function win(symbol){
+    function win(symbol) {
         console.log(symbol);
-        if(kSYMBOL_O === symbol){
+        if (kSYMBOL_O === symbol) {
             alert('O wins!');
-        }else if(kSYMBOL_X === symbol){
+        } else if (kSYMBOL_X === symbol) {
             alert('X wins!');
-        }else
-            alert('Oops! This shouldn\'t happen! Symbol: '+symbol);
+        } else
+            alert('Oops! This shouldn\'t happen! Symbol: ' + symbol);
 
         bGameRunning = false;
         bUserTurn = false;
     }
 
-    function stalemate(){
+    function stalemate() {
         alert('Stalemate!');
     }
 
