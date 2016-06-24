@@ -1,30 +1,29 @@
  <html>
   <head>
     <script id="vBoardShader" type="x-shader/x-vertex">
-      attribute vec3   aPosition;
-      //attribute float  aTextureIndex;
+      attribute vec4   aValues;
 
-      //varying vec2 vTextureCoord;
+      varying vec2 vTextureCoord;
 
-      //uniform vec2 uTextureCoord[24];
+      uniform vec2 uTextureCoord[16];
 
       void main() {
-        //int textureIndex = int(aTextureIndex);
-        //vTextureCoord = uTextureCoord[textureIndex];
+        int textureIndex = int(aValues.w);
+        vTextureCoord = uTextureCoord[textureIndex];
 
-        gl_Position = vec4(aPosition, 1.);
+        gl_Position = vec4(aValues.x, aValues.y, aValues.z, 1.);
       }
     </script>
     <script id="fBoardShader" type="x-shader/x-fragment">
       precision mediump float;
 
-      //varying vec2 vTextureCoord;
+      varying vec2 vTextureCoord;
 
-      //uniform sampler2D uImage;
+      uniform sampler2D uTexture;
 
       void main() {
-           //gl_FragColor = texture2D(uImage, vTextureCoord);
-           gl_FragColor = vec4(1., 0., 0., 1.);
+           gl_FragColor = texture2D(uTexture, vTextureCoord);
+           //gl_FragColor = vec4(1., 0., 0., 1.);
       }
     </script>
   </head>
@@ -33,173 +32,249 @@
     <script type="text/javascript">
     "use strict";
 
-      var glContext, glCanvas, glProgram;
+/* CONSTANTS */
+    var kTEXTURE_O     = 0;
+    var kTEXTURE_X     = 4;
+    var kTEXTURE_WHITE = 8;
+    var kTEXTURE_BLACK = 12;
 
-      var glGameGrid = [
-      /* GRID */
-      // Horizontal Bottom Line
-           -1, -0.40, 0,
-            1, -0.40, 0,
-           -1, -0.30, 0,
-            1, -0.30, 0,
-      // Horizontal Top Line
-           -1,  0.40, 0,
-            1,  0.40, 0,
-           -1,  0.30, 0,
-            1,  0.30, 0,
-      // Vertical Left Line
-        -0.40,   -1, 0,
-        -0.40,    1, 0,
-        -0.30,   -1, 0,
-        -0.30,    1, 0,
-      // Vertical Right Line
-         0.40,   -1, 0,
-         0.40,    1, 0,
-         0.30,   -1, 0,
-         0.30,    1, 0,
+    var kPOSITION_Y_TOP = 1;
+    var kPOSITION_Y_MID = 0;
+    var kPOSITION_Y_BOT = -1;
 
-      /* Panels */
-      // Bottom Left
-           -1,    -1, 0,
-           -1, -0.40, 0,
-         -0.4,    -1, 0,
-         -0.4, -0.40, 0,
-
-      // Middle Left
-           -1,  -0.30, 0,
-           -1,   0.30, 0,
-         -0.4,  -0.30, 0,
-         -0.4,   0.30, 0,
-
-      // Top Left
-           -1,   0.40, 0,
-           -1,      1, 0,
-         -0.4,   0.40, 0,
-         -0.4,      1, 0,
-
-      // Bottom Middle
-         -0.3,    -1, 0,
-         -0.3, -0.40, 0,
-          0.3,    -1, 0,
-          0.3, -0.40, 0,
-
-      // Middle Middle
-         -0.3,  -0.30, 0,
-         -0.3,   0.30, 0,
-          0.3,  -0.30, 0,
-          0.3,   0.30, 0,
-
-        // Top Middle
-         -0.3,   0.40, 0,
-         -0.3,      1, 0,
-          0.3,   0.40, 0,
-          0.3,      1, 0,
-
-        // Bottom Right
-          0.4,    -1, 0,
-          0.4, -0.40, 0,
-            1,    -1, 0,
-            1, -0.40, 0,
-
-        // Middle Right
-          0.4,  -0.30, 0,
-          0.4,   0.30, 0,
-            1,  -0.30, 0,
-            1,   0.30, 0,
-
-        // Top Right
-          0.4,   0.40, 0,
-          0.4,      1, 0,
-            1,   0.40, 0,
-            1,      1, 0
-      ];
+    var kPOSITION_X_LEFT  = 1;
+    var kPOSITION_X_MID   = 0;
+    var kPOSITION_X_RIGHT = -1;
 
 
 
+    var glContext, glCanvas, glProgram, glVertexBuffer, glIndexArray,
+        glIndexBuffer, glTexture, glValueArrLocation;
+
+    var gridOffest;
+
+    var bTextureReady = false;
+
+    var glGameVertexCoords = [];
+    var glTextureCoords = [];
+
+    function generateGrid(){
+        var height = 1;
+        var width = .4;
+        var z = 0;
+        var texture = kTEXTURE_BLACK;
+
+        for(var i = 0; i < 16; i++){
+            height *= -1;
+            if(i % 2 == 0) {
+                if(i != 0){
+                    if(Math.abs(width) == .4)
+                            width = .3;
+                    else
+                            width = .4;
+                }
+            }
+            if(width > 0 && (i < 4 || (i >= 8 && i < 12))){
+                width *= -1;
+            }
+
+            if(i >= 8){
+                glGameVertexCoords.push(width);
+                glGameVertexCoords.push(height);
+            }else{
+                glGameVertexCoords.push(height);
+                glGameVertexCoords.push(width);
+            }
+            glGameVertexCoords.push(0);
+            glGameVertexCoords.push(texture+(i%4));
+        }
+    }
+
+    function generatePanels(){
+        var size = .6;
+        var baseXOffset = 0;
+        var baseYOffset = 0;
+        var xOffset = 0;
+        var yOffset = 0;
+        var texture = kTEXTURE_O;
+
+        for(var i = 0; i < 72; i++){
+            if(i % 4 == 0 && i != 0){
+                baseYOffset += .7;
+            }
+            if(i % 12 == 0 && i != 0){
+                baseXOffset += .7;
+                baseYOffset = 0;
+            }
+            yOffset = baseYOffset;
+            xOffset = baseXOffset;
+
+            if(i % 4 == 1){
+                yOffset += size;
+            }
+            if(i % 4 == 2){
+                xOffset += size;
+
+            }
+            if(i % 4 == 3){
+                yOffset += size;
+                xOffset += size;
+            }
+            glGameVertexCoords.push((-1+ xOffset).toFixed(2));
+            glGameVertexCoords.push((-1+ yOffset).toFixed(2));
+            glGameVertexCoords.push(0);
+            glGameVertexCoords.push(texture + (i%4));
+
+            if(i % 36 == 0 && i != 0){
+                texture = kTEXTURE_X;
+            }
+        }
+    }
+
+    glTextureCoords = [
+            // O
+            0.00, 0.25,
+            0.00, 0.00,
+            0.25, 0.25,
+            0.25, 0.00,
+
+            // X
+            0.25, 0.25,
+            0.25, 0.00,
+            0.50, 0.25,
+            0.50, 0.00,
+
+            // White
+            0.50, 0.25,
+            0.50, 0.00,
+            0.75, 0.25,
+            0.75, 0.00,
+
+            // Black
+            0.75, 0.25,
+            0.75, 0.00,
+            1.00, 0.25,
+            1.00, 0.00
+    ];
+
+    function initWebGL() {
+        glCanvas = document.getElementById("canvas");
+
+        // Get WebGl context
+        glContext = canvas.getContext("webgl");
+        if(!glContext){
+            alert("Your browser does not support WebGl");
+        }
+
+        //Init Vertex Shader
+        var vSrc = document.getElementById("vBoardShader").text;
+        var vShader = glContext.createShader(glContext.VERTEX_SHADER);
+        glContext.shaderSource(vShader, vSrc);
+        glContext.compileShader(vShader);
+
+        //Init Fragment Shader
+        var fSrc = document.getElementById("fBoardShader").text;
+        var fShader = glContext.createShader(glContext.FRAGMENT_SHADER);
+        glContext.shaderSource(fShader, fSrc);
+        glContext.compileShader(fShader);
+
+        // link shaders to create our program
+        glProgram = glContext.createProgram();
+        glContext.attachShader(glProgram, vShader);
+        glContext.attachShader(glProgram, fShader);
+        glContext.linkProgram(glProgram);
+        glContext.useProgram(glProgram);
+    }
+
+    function initTexture(){
+        glTexture = glContext.createTexture();
+        glTexture.image = new Image();
+        glTexture.image.onload = function () {
+            glContext.bindTexture(glContext.TEXTURE_2D, glTexture);
+            glContext.texImage2D(glContext.TEXTURE_2D, 0, glContext.RGBA,
+                    glContext.RGBA, glContext.UNSIGNED_BYTE,
+                    glTexture.image);
+            glContext.generateMipmap(glContext.TEXTURE_2D);
+            glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_MAG_FILTER, glContext.LINEAR);
+            var uniformTextureLocation = glContext.getUniformLocation(glProgram, "uTexture");
+            glContext.uniform1i(uniformTextureLocation, 0);
+            bTextureReady = true;
+        };
+        glTexture.image.src = "resources/ticTacToeMap.png";
+    }
+
+    function initArrays(){
+        generateGrid();
+        generatePanels();
+
+        glIndexArray = [];
+        for(var i = 0; i <= 12; i += 4){
+            // Triangle 1
+            glIndexArray.push(i);
+            glIndexArray.push(i+1);
+            glIndexArray.push(i+2);
+            // Triangle 2
+            glIndexArray.push(i+1);
+            glIndexArray.push(i+2);
+            glIndexArray.push(i+3);
+        }
+
+        // Enable the attribute array used to draw vertices
+        glValueArrLocation = glContext.getAttribLocation(glProgram, "aValues");
+        glContext.enableVertexAttribArray(glValueArrLocation);
+
+        //Vertex Buffer
+        glVertexBuffer = glContext.createBuffer();
+        glContext.bindBuffer(glContext.ARRAY_BUFFER, glVertexBuffer);
+        glContext.bufferData(glContext.ARRAY_BUFFER, new Float32Array(glGameVertexCoords), glContext.STATIC_DRAW);
+
+        glIndexBuffer = glContext.createBuffer();
+        glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, glIndexBuffer);
+        glContext.bufferData(glContext.ELEMENT_ARRAY_BUFFER, new Uint16Array(glIndexArray), glContext.STATIC_DRAW);
+        glContext.vertexAttribPointer(glValueArrLocation, 4, glContext.FLOAT, false, 0, 0);
+
+        var uniformLoc = glContext.getUniformLocation(glProgram, "uTextureCoord");
+        // tell webgl how buffer is laid out (pairs of x,y coords)
+        glContext.uniform2fv(uniformLoc, new Float32Array(glTextureCoords));
+    }
+    
+    initWebGL();
+    initTexture();
+    var textureCheck = setTimeout(isTextureReady, 50);
+    function isTextureReady(){
+        if(bTextureReady) {
+            initArrays();
+            //Draw Grid
+            glUpdate(glIndexArray.length);
+            gridOffest = glIndexArray.length;
+            main();
+            window.clearInterval(textureCheck);
+        }
+    }
 
 
-      //Grab Canvas
-      glCanvas = document.getElementById("canvas");
-
-      // Get WebGl context
-      glContext = canvas.getContext("webgl");
-      if(!glContext){
-        alert("Your browser does not support WebGl");
-      }
-
-      //Init Vertex Shader
-      var vSrc = document.getElementById("vBoardShader").text;
-      var vShader = glContext.createShader(glContext.VERTEX_SHADER);
-      glContext.shaderSource(vShader, vSrc);
-      glContext.compileShader(vShader);
-
-      //Init Fragment Shader
-      var fSrc = document.getElementById("fBoardShader").text;
-      var fShader = glContext.createShader(glContext.FRAGMENT_SHADER);
-      glContext.shaderSource(fShader, fSrc);
-      glContext.compileShader(fShader);
-
-      // link shaders to create our program
-      glProgram = glContext.createProgram();
-      glContext.attachShader(glProgram, vShader);
-      glContext.attachShader(glProgram, fShader);
-      glContext.linkProgram(glProgram);
-      glContext.useProgram(glProgram);
-
-
-      // Enable the attribute array used to draw vertices
-      var glPositionArrLocation = glContext.getAttribLocation(glProgram, "aPosition");
-      glContext.enableVertexAttribArray(glPositionArrLocation);
-
-      //Vertex Buffer
-      var vertexBuffer = glContext.createBuffer();
-      glContext.bindBuffer(glContext.ARRAY_BUFFER, vertexBuffer);
-
-      //Pass in the javascript array as a buffer.
-      glContext.bufferData(glContext.ARRAY_BUFFER, new Float32Array(glGameGrid), glContext.STATIC_DRAW);
-
-
-      var vertexIndexBuffer = glContext.createBuffer();
-      glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
-
-      var indexArray = [];
-      for(var i = 0; i < glGameGrid.length/2; i += 4){
-        // Triangle 1
-        indexArray.push(i);
-        indexArray.push(i+1);
-        indexArray.push(i+2);
-
-        // Triangle 2
-        indexArray.push(i+1);
-        indexArray.push(i+2);
-        indexArray.push(i+3);
-
-      }
-
-      glContext.bufferData(glContext.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexArray), glContext.STATIC_DRAW);
-//      glContext.bufferData(glContext.ELEMENT_ARRAY_BUFFER, new Uint16Array(gridIndecies), glContext.STATIC_DRAW);
-
-//      //Enable the attribute and define array configuration
-//      var attributeLoc = glContext.getAttribLocation(glProgram, 'aLoc');
-//      glContext.enableVertexAttribArray(attributeLoc);
-//      //Read 4 consecutive elements at a time starting at index 0
-//      glContext.vertexAttribPointer(attributeLoc, 3, glContext.FLOAT, false, 0, 0);
-
-      update();
-
-      // Master update function
-      function update(){
+    // Master update function
+    function glUpdate(numOfVertices){
         //Clear the canvas
         glContext.clear(glContext.COLOR_BUFFER_BIT);
 
-        glContext.bindBuffer(glContext.ARRAY_BUFFER, vertexBuffer);
-        glContext.vertexAttribPointer(glPositionArrLocation, 3, glContext.FLOAT, false, 0, 0);
-
-        glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
-        glContext.drawElements(glContext.TRIANGLES, glGameGrid.length/2, glContext.UNSIGNED_SHORT, 0);
+        glContext.drawElements(glContext.TRIANGLES, numOfVertices, glContext.UNSIGNED_SHORT, 0);
 
 
-      }
+    }
+
+
+    function drawX(x, y) {
+
+    }
+    function drawO(x, y) {
+
+    }
+
+    function main(){
+        drawX(kPOSITION_X_LEFT, kPOSITION_Y_BOT);
+        drawO(kPOSITION_X_LEFT, kPOSITION_Y_TOP);
+    }
     </script>
   </body>
 </html>
